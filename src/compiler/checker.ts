@@ -583,7 +583,7 @@ namespace ts {
         }
 
         function getObjectFlags(type: Type): ObjectFlags {
-            return type.flags & TypeFlags.Object ? (<ObjectType>type).objectFlags : 0;
+            return isObjectType(type) ? type.objectFlags : 0;
         }
 
         function isGlobalSourceFile(node: Node) {
@@ -2343,8 +2343,8 @@ namespace ts {
                         const typeArguments = type.aliasTypeArguments;
                         writeSymbolTypeReference(type.aliasSymbol, typeArguments, 0, typeArguments ? typeArguments.length : 0, nextFlags);
                     }
-                    else if (type.flags & TypeFlags.UnionOrIntersection) {
-                        writeUnionOrIntersectionType(<UnionOrIntersectionType>type, nextFlags);
+                    else if (isUnionOrIntersectionType(type)) {
+                        writeUnionOrIntersectionType(type, nextFlags);
                     }
                     else if (getObjectFlags(type) & (ObjectFlags.Anonymous | ObjectFlags.Mapped)) {
                         writeAnonymousType(<ObjectType>type, nextFlags);
@@ -2450,7 +2450,7 @@ namespace ts {
                     if (flags & TypeFormatFlags.InElementType) {
                         writePunctuation(writer, SyntaxKind.OpenParenToken);
                     }
-                    if (type.flags & TypeFlags.Union) {
+                    if (isUnionType(type)) {
                         writeTypeList(formatUnionTypes(type.types), SyntaxKind.BarToken);
                     }
                     else {
@@ -3138,7 +3138,7 @@ namespace ts {
                 return emptyObjectType;
             }
 
-            if (source.flags & TypeFlags.Union) {
+            if (isUnionType(source)) {
                 return mapType(source, t => getRestType(t, properties, symbol));
             }
 
@@ -4161,7 +4161,7 @@ namespace ts {
             const links = getSymbolLinks(symbol);
             if (!links.declaredType) {
                 const enumType = <EnumType>getDeclaredTypeOfEnum(getParentOfSymbol(symbol));
-                links.declaredType = enumType.flags & TypeFlags.Union ?
+                links.declaredType = isUnionType(enumType) ?
                     enumType.memberTypes[getEnumMemberValue(<EnumMember>symbol.valueDeclaration)] :
                     enumType;
             }
@@ -4719,25 +4719,25 @@ namespace ts {
 
         function resolveStructuredTypeMembers(type: StructuredType): ResolvedType {
             if (!(<ResolvedType>type).members) {
-                if (type.flags & TypeFlags.Object) {
-                    if ((<ObjectType>type).objectFlags & ObjectFlags.Reference) {
+                if (isObjectType(type)) {
+                    if (type.objectFlags & ObjectFlags.Reference) {
                         resolveTypeReferenceMembers(<TypeReference>type);
                     }
-                    else if ((<ObjectType>type).objectFlags & ObjectFlags.ClassOrInterface) {
+                    else if (type.objectFlags & ObjectFlags.ClassOrInterface) {
                         resolveClassOrInterfaceMembers(<InterfaceType>type);
                     }
-                    else if ((<ObjectType>type).objectFlags & ObjectFlags.Anonymous) {
+                    else if (type.objectFlags & ObjectFlags.Anonymous) {
                         resolveAnonymousTypeMembers(<AnonymousType>type);
                     }
-                    else if ((<MappedType>type).objectFlags & ObjectFlags.Mapped) {
+                    else if (type.objectFlags & ObjectFlags.Mapped) {
                         resolveMappedTypeMembers(<MappedType>type);
                     }
                 }
-                else if (type.flags & TypeFlags.Union) {
-                    resolveUnionTypeMembers(<UnionType>type);
+                else if (isUnionType(type)) {
+                    resolveUnionTypeMembers(type);
                 }
-                else if (type.flags & TypeFlags.Intersection) {
-                    resolveIntersectionTypeMembers(<IntersectionType>type);
+                else if (isIntersectionType(type)) {
+                    resolveIntersectionTypeMembers(type);
                 }
             }
             return <ResolvedType>type;
@@ -4777,7 +4777,7 @@ namespace ts {
                     }
                     // The properties of a union type are those that are present in all constituent types, so
                     // we only need to check the properties of the first type
-                    if (type.flags & TypeFlags.Union) {
+                    if (isUnionType(type)) {
                         break;
                     }
                 }
@@ -4788,8 +4788,8 @@ namespace ts {
 
         function getPropertiesOfType(type: Type): Symbol[] {
             type = getApparentType(type);
-            return type.flags & TypeFlags.UnionOrIntersection ?
-                getPropertiesOfUnionOrIntersectionType(<UnionType>type) :
+            return isUnionOrIntersectionType(type) ?
+                getPropertiesOfUnionOrIntersectionType(type) :
                 getPropertiesOfObjectType(type);
         }
 
@@ -4842,8 +4842,8 @@ namespace ts {
                     return (<TypeParameter>t).isThisType ? constraint :
                         constraint ? getBaseConstraint(constraint) : undefined;
                 }
-                if (t.flags & TypeFlags.UnionOrIntersection) {
-                    const types = (<UnionOrIntersectionType>t).types;
+                if (isUnionOrIntersectionType(t)) {
+                    const types = t.types;
                     const baseTypes: Type[] = [];
                     for (const type of types) {
                         const baseType = getBaseConstraint(type);
@@ -4851,16 +4851,16 @@ namespace ts {
                             baseTypes.push(baseType);
                         }
                     }
-                    return t.flags & TypeFlags.Union && baseTypes.length === types.length ? getUnionType(baseTypes) :
-                        t.flags & TypeFlags.Intersection && baseTypes.length ? getIntersectionType(baseTypes) :
-                        undefined;
+                    return isUnionType(t) && baseTypes.length === types.length ? getUnionType(baseTypes) :
+                        isIntersectionType(t) && baseTypes.length ? getIntersectionType(baseTypes) :
+                        undefined; //note: this should be impossible...
                 }
                 if (t.flags & TypeFlags.Index) {
                     return stringType;
                 }
-                if (t.flags & TypeFlags.IndexedAccess) {
-                    const baseObjectType = getBaseConstraint((<IndexedAccessType>t).objectType);
-                    const baseIndexType = getBaseConstraint((<IndexedAccessType>t).indexType);
+                if (isIndexedAccessType(t)) {
+                    const baseObjectType = getBaseConstraint(t.objectType);
+                    const baseIndexType = getBaseConstraint(t.indexType);
                     const baseIndexedAccess = baseObjectType && baseIndexType ? getIndexedAccessType(baseObjectType, baseIndexType) : undefined;
                     return baseIndexedAccess && baseIndexedAccess !== unknownType ? getBaseConstraint(baseIndexedAccess) : undefined;
                 }
@@ -4912,7 +4912,7 @@ namespace ts {
                         }
 
                     }
-                    else if (containingType.flags & TypeFlags.Union) {
+                    else if (isUnionType(containingType)) {
                         isPartial = true;
                     }
                 }
@@ -4946,7 +4946,7 @@ namespace ts {
             result.isPartial = isPartial;
             result.declarations = declarations;
             result.isReadonly = isReadonly;
-            result.type = containingType.flags & TypeFlags.Union ? getUnionType(propTypes) : getIntersectionType(propTypes);
+            result.type = isUnionType(containingType) ? getUnionType(propTypes) : getIntersectionType(propTypes);
             return result;
         }
 
@@ -6017,7 +6017,7 @@ namespace ts {
                 typeSet.containsAny = true;
             }
             else if (!(type.flags & TypeFlags.Never) && (strictNullChecks || !(type.flags & TypeFlags.Nullable)) && !contains(typeSet, type)) {
-                if (type.flags & TypeFlags.Union && typeSet.unionIndex === undefined) {
+                if (isUnionType(type) && typeSet.unionIndex === undefined) {
                     typeSet.unionIndex = typeSet.length;
                 }
                 typeSet.push(type);
@@ -6232,9 +6232,9 @@ namespace ts {
             }
             // In the following we resolve T[K] to the type of the property in T selected by K.
             const apparentObjectType = getApparentType(objectType);
-            if (indexType.flags & TypeFlags.Union && !(indexType.flags & TypeFlags.Primitive)) {
+            if (isUnionType(indexType) && !(indexType.flags & TypeFlags.Primitive)) {
                 const propTypes: Type[] = [];
-                for (const t of (<UnionType>indexType).types) {
+                for (const t of indexType.types) {
                     const propType = getPropertyTypeForIndexType(apparentObjectType, t, accessNode, /*cacheSymbol*/ false);
                     if (propType === unknownType) {
                         return unknownType;
@@ -6313,10 +6313,10 @@ namespace ts {
             if (right.flags & TypeFlags.Never) {
                 return left;
             }
-            if (left.flags & TypeFlags.Union) {
+            if (isUnionType(left)) {
                 return mapType(left, t => getSpreadType(t, right));
             }
-            if (right.flags & TypeFlags.Union) {
+            if (isUnionType(right)) {
                 return mapType(right, t => getSpreadType(left, t));
             }
             if (right.flags & TypeFlags.NonPrimitive) {
@@ -6882,8 +6882,8 @@ namespace ts {
                     return createTypeReference((<TypeReference>type).target, instantiateTypes((<TypeReference>type).typeArguments, mapper));
                 }
             }
-            if (type.flags & TypeFlags.Union && !(type.flags & TypeFlags.Primitive)) {
-                return getUnionType(instantiateTypes((<UnionType>type).types, mapper), /*subtypeReduction*/ false, type.aliasSymbol, instantiateTypes(type.aliasTypeArguments, mapper));
+            if (isUnionType(type) && !(type.flags & TypeFlags.Primitive)) {
+                return getUnionType(instantiateTypes(type.types, mapper), /*subtypeReduction*/ false, type.aliasSymbol, instantiateTypes(type.aliasTypeArguments, mapper));
             }
             if (type.flags & TypeFlags.Intersection) {
                 return getIntersectionType(instantiateTypes((<IntersectionType>type).types, mapper), type.aliasSymbol, instantiateTypes(type.aliasTypeArguments, mapper));
@@ -7211,7 +7211,7 @@ namespace ts {
             }
             if (source.symbol.name !== target.symbol.name ||
                 !(source.symbol.flags & SymbolFlags.RegularEnum) || !(target.symbol.flags & SymbolFlags.RegularEnum) ||
-                (source.flags & TypeFlags.Union) !== (target.flags & TypeFlags.Union)) {
+                isUnionType(source) !== isUnionType(target)) {
                 enumRelation.set(id, false);
                 return false;
             }
@@ -7429,28 +7429,28 @@ namespace ts {
                 // Note that these checks are specifically ordered to produce correct results. In particular,
                 // we need to deconstruct unions before intersections (because unions are always at the top),
                 // and we need to handle "each" relations before "some" relations for the same kind of type.
-                if (source.flags & TypeFlags.Union) {
+                if (isUnionType(source)) {
                     if (relation === comparableRelation) {
-                        result = someTypeRelatedToType(source as UnionType, target, reportErrors && !(source.flags & TypeFlags.Primitive));
+                        result = someTypeRelatedToType(source, target, reportErrors && !(source.flags & TypeFlags.Primitive));
                     }
                     else {
-                        result = eachTypeRelatedToType(source as UnionType, target, reportErrors && !(source.flags & TypeFlags.Primitive));
+                        result = eachTypeRelatedToType(source, target, reportErrors && !(source.flags & TypeFlags.Primitive));
                     }
                     if (result) {
                         return result;
                     }
                 }
-                else if (target.flags & TypeFlags.Union) {
-                    if (result = typeRelatedToSomeType(source, <UnionType>target, reportErrors && !(source.flags & TypeFlags.Primitive) && !(target.flags & TypeFlags.Primitive))) {
+                else if (isUnionType(target)) {
+                    if (result = typeRelatedToSomeType(source, target, reportErrors && !(source.flags & TypeFlags.Primitive) && !(target.flags & TypeFlags.Primitive))) {
                         return result;
                     }
                 }
-                else if (target.flags & TypeFlags.Intersection) {
-                    if (result = typeRelatedToEachType(source, target as IntersectionType, reportErrors)) {
+                else if (isIntersectionType(target)) {
+                    if (result = typeRelatedToEachType(source, target, reportErrors)) {
                         return result;
                     }
                 }
-                else if (source.flags & TypeFlags.Intersection) {
+                else if (isIntersectionType(source)) {
                     // Check to see if any constituents of the intersection are immediately related to the target.
                     //
                     // Don't report errors though. Checking whether a constituent is related to the source is not actually
@@ -7464,7 +7464,7 @@ namespace ts {
                     //
                     //    - For a primitive type or type parameter (such as 'number = A & B') there is no point in
                     //          breaking the intersection apart.
-                    if (result = someTypeRelatedToType(<IntersectionType>source, target, /*reportErrors*/ false)) {
+                    if (result = someTypeRelatedToType(source, target, /*reportErrors*/ false)) {
                         return result;
                     }
                 }
@@ -7600,10 +7600,9 @@ namespace ts {
                     }
                     return objectTypeRelatedTo(source, source, target, /*reportErrors*/ false);
                 }
-                if (source.flags & TypeFlags.Union && target.flags & TypeFlags.Union ||
-                    source.flags & TypeFlags.Intersection && target.flags & TypeFlags.Intersection) {
-                    if (result = eachTypeRelatedToSomeType(<UnionOrIntersectionType>source, <UnionOrIntersectionType>target)) {
-                        if (result &= eachTypeRelatedToSomeType(<UnionOrIntersectionType>target, <UnionOrIntersectionType>source)) {
+                if (isUnionType(source) && isUnionType(target) || isIntersectionType(source) && isIntersectionType(target)) {
+                    if (result = eachTypeRelatedToSomeType(source, target)) {
+                        if (result &= eachTypeRelatedToSomeType(target, source)) {
                             return result;
                         }
                     }
@@ -7625,8 +7624,8 @@ namespace ts {
                         return true;
                     }
                 }
-                else if (type.flags & TypeFlags.UnionOrIntersection) {
-                    for (const t of (<UnionOrIntersectionType>type).types) {
+                else if (isUnionOrIntersectionType(type)) {
+                    for (const t of type.types) {
                         if (isKnownProperty(t, name)) {
                             return true;
                         }
@@ -22165,5 +22164,22 @@ namespace ts {
             });
             return result;
         }
+    }
+
+    //move
+    function isUnionOrIntersectionType(type: Type): type is UnionOrIntersectionType {
+        return !!(type.flags & TypeFlags.UnionOrIntersection);
+    }
+    function isUnionType(type: Type): type is UnionType {
+        return !!(type.flags & TypeFlags.Union);
+    }
+    function isIntersectionType(type: Type): type is IntersectionType {
+        return !!(type.flags & TypeFlags.Intersection);
+    }
+    function isIndexedAccessType(type: Type): type is IndexedAccessType {
+        return !!(type.flags & TypeFlags.IndexedAccess);
+    }
+    function isObjectType(type: Type): type is ObjectType {
+        return !!(type.flags & TypeFlags.Object);
     }
 }
