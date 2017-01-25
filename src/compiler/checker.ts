@@ -2343,7 +2343,7 @@ namespace ts {
                         const typeArguments = type.aliasTypeArguments;
                         writeSymbolTypeReference(type.aliasSymbol, typeArguments, 0, typeArguments ? typeArguments.length : 0, nextFlags);
                     }
-                    else if (isUnionOrIntersection(type)) {
+                    else if (isUnionOrIntersectionType(type)) {
                         writeUnionOrIntersectionType(type, nextFlags);
                     }
                     else if (getObjectFlags(type) & (ObjectFlags.Anonymous | ObjectFlags.Mapped)) {
@@ -2451,7 +2451,7 @@ namespace ts {
                         writePunctuation(writer, SyntaxKind.OpenParenToken);
                     }
                     const { types } = type;
-                    if (isUnion(type)) {
+                    if (isUnionType(type)) {
                         writeTypeList(formatUnionTypes(types), SyntaxKind.BarToken);
                     }
                     else {
@@ -3139,7 +3139,7 @@ namespace ts {
                 return emptyObjectType;
             }
 
-            if (isUnion(source)) {
+            if (isUnionType(source)) {
                 return mapType(source, t => getRestType(t, properties, symbol));
             }
 
@@ -4162,7 +4162,7 @@ namespace ts {
             const links = getSymbolLinks(symbol);
             if (!links.declaredType) {
                 const enumType = <EnumType>getDeclaredTypeOfEnum(getParentOfSymbol(symbol));
-                links.declaredType = isUnion(enumType) ?
+                links.declaredType = isUnionType(enumType) ?
                     enumType.memberTypes[getEnumMemberValue(<EnumMember>symbol.valueDeclaration)] :
                     enumType;
             }
@@ -4734,10 +4734,10 @@ namespace ts {
                         resolveMappedTypeMembers(<MappedType>type);
                     }
                 }
-                else if (isUnion(type)) {
+                else if (isUnionType(type)) {
                     resolveUnionTypeMembers(type);
                 }
-                else if (isIntersection(type)) {
+                else if (isIntersectionType(type)) {
                     resolveIntersectionTypeMembers(type);
                 }
             }
@@ -4778,7 +4778,7 @@ namespace ts {
                     }
                     // The properties of a union type are those that are present in all constituent types, so
                     // we only need to check the properties of the first type
-                    if (isUnion(type)) {
+                    if (isUnionType(type)) {
                         break;
                     }
                 }
@@ -4789,7 +4789,7 @@ namespace ts {
 
         function getPropertiesOfType(type: Type): Symbol[] {
             type = getApparentType(type);
-            return isUnionOrIntersection(type) ?
+            return isUnionOrIntersectionType(type) ?
                 getPropertiesOfUnionOrIntersectionType(type) :
                 getPropertiesOfObjectType(type);
         }
@@ -4843,7 +4843,7 @@ namespace ts {
                     return (<TypeParameter>t).isThisType ? constraint :
                         constraint ? getBaseConstraint(constraint) : undefined;
                 }
-                if (isUnionOrIntersection(t)) {
+                if (isUnionOrIntersectionType(t)) {
                     const types = t.types;
                     const baseTypes: Type[] = [];
                     for (const type of types) {
@@ -4852,8 +4852,8 @@ namespace ts {
                             baseTypes.push(baseType);
                         }
                     }
-                    return isUnion(t) && baseTypes.length === types.length ? getUnionType(baseTypes) :
-                        isIntersection(t) && baseTypes.length ? getIntersectionType(baseTypes) :
+                    return isUnionType(t) && baseTypes.length === types.length ? getUnionType(baseTypes) :
+                        isIntersectionType(t) && baseTypes.length ? getIntersectionType(baseTypes) :
                         undefined; //note: this should be impossible...
                 }
                 if (isIndexType(t)) {
@@ -4913,7 +4913,7 @@ namespace ts {
                         }
 
                     }
-                    else if (isUnion(containingType)) {
+                    else if (isUnionType(containingType)) {
                         isPartial = true;
                     }
                 }
@@ -4947,7 +4947,7 @@ namespace ts {
             result.isPartial = isPartial;
             result.declarations = declarations;
             result.isReadonly = isReadonly;
-            result.type = isUnion(containingType) ? getUnionType(propTypes) : getIntersectionType(propTypes);
+            result.type = isUnionType(containingType) ? getUnionType(propTypes) : getIntersectionType(propTypes);
             return result;
         }
 
@@ -4998,7 +4998,7 @@ namespace ts {
                 }
                 return getPropertyOfObjectType(globalObjectType, name);
             }
-            if (isUnionOrIntersection(type)) {
+            if (isUnionOrIntersectionType(type)) {
                 return getPropertyOfUnionOrIntersectionType(type, name);
             }
             return undefined;
@@ -5851,7 +5851,7 @@ namespace ts {
 
         function addTypeToUnion(typeSet: TypeSet, type: Type) {
             const flags = type.flags;
-            if (isUnion(type)) {
+            if (isUnionType(type)) {
                 addTypesToUnion(typeSet, type.types);
             }
             else if (flags & TypeFlags.Any) {
@@ -6018,7 +6018,7 @@ namespace ts {
                 typeSet.containsAny = true;
             }
             else if (!(type.flags & TypeFlags.Never) && (strictNullChecks || !(type.flags & TypeFlags.Nullable)) && !contains(typeSet, type)) {
-                if (isUnion(type) && typeSet.unionIndex === undefined) {
+                if (isUnionType(type) && typeSet.unionIndex === undefined) {
                     typeSet.unionIndex = typeSet.length;
                 }
                 typeSet.push(type);
@@ -6233,7 +6233,7 @@ namespace ts {
             }
             // In the following we resolve T[K] to the type of the property in T selected by K.
             const apparentObjectType = getApparentType(objectType);
-            if (isUnion(indexType) && !(indexType.flags & TypeFlags.Primitive)) {
+            if (isUnionType(indexType) && !(indexType.flags & TypeFlags.Primitive)) {
                 const propTypes: Type[] = [];
                 for (const t of indexType.types) {
                     const propType = getPropertyTypeForIndexType(apparentObjectType, t, accessNode, /*cacheSymbol*/ false);
@@ -6314,10 +6314,10 @@ namespace ts {
             if (right.flags & TypeFlags.Never) {
                 return left;
             }
-            if (isUnion(left)) {
+            if (isUnionType(left)) {
                 return mapType(left, t => getSpreadType(t, right));
             }
-            if (isUnion(right)) {
+            if (isUnionType(right)) {
                 return mapType(right, t => getSpreadType(left, t));
             }
             if (right.flags & TypeFlags.NonPrimitive) {
@@ -6883,7 +6883,7 @@ namespace ts {
                     return createTypeReference((<TypeReference>type).target, instantiateTypes((<TypeReference>type).typeArguments, mapper));
                 }
             }
-            if (isUnion(type) && !(type.flags & TypeFlags.Primitive)) {
+            if (isUnionType(type) && !(type.flags & TypeFlags.Primitive)) {
                 return getUnionType(instantiateTypes(type.types, mapper), /*subtypeReduction*/ false, type.aliasSymbol, instantiateTypes(type.aliasTypeArguments, mapper));
             }
             if (type.flags & TypeFlags.Intersection) {
@@ -7212,7 +7212,7 @@ namespace ts {
             }
             if (source.symbol.name !== target.symbol.name ||
                 !(source.symbol.flags & SymbolFlags.RegularEnum) || !(target.symbol.flags & SymbolFlags.RegularEnum) ||
-                isUnion(source) !== isUnion(target)) {
+                isUnionType(source) !== isUnionType(target)) {
                 enumRelation.set(id, false);
                 return false;
             }
@@ -7368,7 +7368,7 @@ namespace ts {
             }
 
             function isUnionOrIntersectionTypeWithoutNullableConstituents(type: Type): boolean {
-                if (!isUnionOrIntersection(type)) {
+                if (!isUnionOrIntersectionType(type)) {
                     return false;
                 }
                 // at this point we know that this is union or intersection type possibly with nullable constituents.
@@ -7430,7 +7430,7 @@ namespace ts {
                 // Note that these checks are specifically ordered to produce correct results. In particular,
                 // we need to deconstruct unions before intersections (because unions are always at the top),
                 // and we need to handle "each" relations before "some" relations for the same kind of type.
-                if (isUnion(source)) {
+                if (isUnionType(source)) {
                     if (relation === comparableRelation) {
                         result = someTypeRelatedToType(source, target, reportErrors && !(source.flags & TypeFlags.Primitive));
                     }
@@ -7441,17 +7441,17 @@ namespace ts {
                         return result;
                     }
                 }
-                else if (isUnion(target)) {
+                else if (isUnionType(target)) {
                     if (result = typeRelatedToSomeType(source, target, reportErrors && !(source.flags & TypeFlags.Primitive) && !(target.flags & TypeFlags.Primitive))) {
                         return result;
                     }
                 }
-                else if (isIntersection(target)) {
+                else if (isIntersectionType(target)) {
                     if (result = typeRelatedToEachType(source, target, reportErrors)) {
                         return result;
                     }
                 }
-                else if (isIntersection(source)) {
+                else if (isIntersectionType(source)) {
                     // Check to see if any constituents of the intersection are immediately related to the target.
                     //
                     // Don't report errors though. Checking whether a constituent is related to the source is not actually
@@ -7601,7 +7601,7 @@ namespace ts {
                     }
                     return objectTypeRelatedTo(source, source, target, /*reportErrors*/ false);
                 }
-                if (isUnion(source) && isUnion(target) || isIntersection(source) && isIntersection(target)) {
+                if (isUnionType(source) && isUnionType(target) || isIntersectionType(source) && isIntersectionType(target)) {
                     if (result = eachTypeRelatedToSomeType(source, target)) {
                         if (result &= eachTypeRelatedToSomeType(target, source)) {
                             return result;
@@ -7625,7 +7625,7 @@ namespace ts {
                         return true;
                     }
                 }
-                else if (isUnionOrIntersection(type)) {
+                else if (isUnionOrIntersectionType(type)) {
                     for (const t of type.types) {
                         if (isKnownProperty(t, name)) {
                             return true;
@@ -7678,7 +7678,7 @@ namespace ts {
 
             function typeRelatedToSomeType(source: Type, target: UnionOrIntersectionType, reportErrors: boolean): Ternary {
                 const targetTypes = target.types;
-                if (isUnion(target) && containsType(targetTypes, source)) {
+                if (isUnionType(target) && containsType(targetTypes, source)) {
                     return Ternary.True;
                 }
                 const len = targetTypes.length;
@@ -7706,7 +7706,7 @@ namespace ts {
 
             function someTypeRelatedToType(source: UnionOrIntersectionType, target: Type, reportErrors: boolean): Ternary {
                 const sourceTypes = source.types;
-                if (isUnion(source) && containsType(sourceTypes, target)) {
+                if (isUnionType(source) && containsType(sourceTypes, target)) {
                     return Ternary.True;
                 }
                 const len = sourceTypes.length;
@@ -8401,7 +8401,7 @@ namespace ts {
 
         function isLiteralType(type: Type): boolean {
             return type.flags & TypeFlags.Boolean ? true :
-                isUnion(type) ? type.flags & TypeFlags.Enum ? true : !forEach(type.types, t => !isUnitType(t)) :
+                isUnionType(type) ? type.flags & TypeFlags.Enum ? true : !forEach(type.types, t => !isUnitType(t)) :
                 isUnitType(type);
         }
 
@@ -8410,7 +8410,7 @@ namespace ts {
                 type.flags & TypeFlags.NumberLiteral ? numberType :
                 type.flags & TypeFlags.BooleanLiteral ? booleanType :
                 type.flags & TypeFlags.EnumLiteral ? (<EnumLiteralType>type).baseType :
-                isUnion(type) && !(type.flags & TypeFlags.Enum) ? getUnionType(sameMap(type.types, getBaseTypeOfLiteralType)) :
+                isUnionType(type) && !(type.flags & TypeFlags.Enum) ? getUnionType(sameMap(type.types, getBaseTypeOfLiteralType)) :
                 type;
         }
 
@@ -8419,7 +8419,7 @@ namespace ts {
                 type.flags & TypeFlags.NumberLiteral && type.flags & TypeFlags.FreshLiteral ? numberType :
                 type.flags & TypeFlags.BooleanLiteral ? booleanType :
                 type.flags & TypeFlags.EnumLiteral ? (<EnumLiteralType>type).baseType :
-                isUnion(type) && !(type.flags & TypeFlags.Enum) ? getUnionType(sameMap(type.types, getWidenedLiteralType)) :
+                isUnionType(type) && !(type.flags & TypeFlags.Enum) ? getUnionType(sameMap(type.types, getWidenedLiteralType)) :
                 type;
         }
 
@@ -8444,7 +8444,7 @@ namespace ts {
         // flags for the string, number, boolean, "", 0, false, void, undefined, or null types respectively. Returns
         // no flags for all other types (including non-falsy literal types).
         function getFalsyFlags(type: Type): TypeFlags {
-            return isUnion(type) ? getFalsyFlagsOfTypes(type.types) :
+            return isUnionType(type) ? getFalsyFlagsOfTypes(type.types) :
                 type.flags & TypeFlags.StringLiteral ? (<LiteralType>type).text === "" ? TypeFlags.StringLiteral : 0 :
                 type.flags & TypeFlags.NumberLiteral ? (<LiteralType>type).text === "0" ? TypeFlags.NumberLiteral : 0 :
                 type.flags & TypeFlags.BooleanLiteral ? type === falseType ? TypeFlags.BooleanLiteral : 0 :
@@ -8559,7 +8559,7 @@ namespace ts {
                 if (getObjectFlags(type) & ObjectFlags.ObjectLiteral) {
                     return getWidenedTypeOfObjectLiteral(type);
                 }
-                if (isUnion(type)) {
+                if (isUnionType(type)) {
                     return getUnionType(sameMap(type.types, getWidenedConstituentType));
                 }
                 if (isArrayType(type) || isTupleType(type)) {
@@ -8582,7 +8582,7 @@ namespace ts {
          */
         function reportWideningErrorsInType(type: Type): boolean {
             let errorReported = false;
-            if (isUnion(type)) {
+            if (isUnionType(type)) {
                 for (const t of type.types) {
                     if (reportWideningErrorsInType(t)) {
                         errorReported = true;
@@ -8703,7 +8703,7 @@ namespace ts {
                 objectFlags & ObjectFlags.Reference && forEach((<TypeReference>type).typeArguments, couldContainTypeVariables) ||
                 objectFlags & ObjectFlags.Anonymous && type.symbol && type.symbol.flags & (SymbolFlags.Method | SymbolFlags.TypeLiteral | SymbolFlags.Class) ||
                 objectFlags & ObjectFlags.Mapped ||
-                isUnionOrIntersection(type) && couldUnionOrIntersectionContainTypeVariables(type));
+                isUnionOrIntersectionType(type) && couldUnionOrIntersectionContainTypeVariables(type));
         }
 
         function couldUnionOrIntersectionContainTypeVariables(type: UnionOrIntersectionType): boolean {
@@ -8714,7 +8714,7 @@ namespace ts {
         }
 
         function isTypeParameterAtTopLevel(type: Type, typeParameter: TypeParameter): boolean {
-            return type === typeParameter || isUnionOrIntersection(type) && forEach(type.types, t => isTypeParameterAtTopLevel(t, typeParameter));
+            return type === typeParameter || isUnionOrIntersectionType(type) && forEach(type.types, t => isTypeParameterAtTopLevel(t, typeParameter));
         }
 
         // Infer a suitable input type for a homomorphic mapped type { [P in keyof T]: X }. We construct
@@ -8799,8 +8799,8 @@ namespace ts {
                     }
                     return;
                 }
-                if (isUnion(source) && isUnion(target) && !(source.flags & TypeFlags.Enum && target.flags & TypeFlags.Enum) ||
-                    isIntersection(source) && isIntersection(target)) {
+                if (isUnionType(source) && isUnionType(target) && !(source.flags & TypeFlags.Enum && target.flags & TypeFlags.Enum) ||
+                    isIntersectionType(source) && isIntersectionType(target)) {
                     // Source and target are both unions or both intersections. If source and target
                     // are the same type, just relate each constituent type to itself.
                     if (source === target) {
@@ -8879,7 +8879,7 @@ namespace ts {
                         inferFromTypes(sourceTypes[i], targetTypes[i]);
                     }
                 }
-                else if (isUnionOrIntersection(target)) {
+                else if (isUnionOrIntersectionType(target)) {
                     let typeVariableCount = 0;
                     let typeVariable: TypeVariable;
                     // First infer to each type in union or intersection that isn't a type variable
@@ -8901,7 +8901,7 @@ namespace ts {
                         inferiority--;
                     }
                 }
-                else if (isUnionOrIntersection(source)) {
+                else if (isUnionOrIntersectionType(source)) {
                     // Source is a union or intersection type, infer from each constituent type
                     for (const sourceType of source.types) {
                         inferFromTypes(sourceType, target);
@@ -9044,7 +9044,7 @@ namespace ts {
                     reducedTypes.push(t);
                 }
             }
-            return isUnion(type) ? getUnionType(reducedTypes) : getIntersectionType(reducedTypes);
+            return isUnionType(type) ? getUnionType(reducedTypes) : getIntersectionType(reducedTypes);
         }
 
         function getInferenceCandidates(context: InferenceContext, index: number): Type[] {
@@ -9221,7 +9221,7 @@ namespace ts {
         }
 
         function isDiscriminantProperty(type: Type, name: string) {
-            if (type && isUnion(type)) {
+            if (type && isUnionType(type)) {
                 const prop = getUnionOrIntersectionProperty(type, name);
                 if (prop && prop.flags & SymbolFlags.SyntheticProperty) {
                     if ((<TransientSymbol>prop).isDiscriminantProperty === undefined) {
@@ -9261,7 +9261,7 @@ namespace ts {
         }
 
         function typeMaybeAssignableTo(source: Type, target: Type) {
-            if (!isUnion(source)) {
+            if (!isUnionType(source)) {
                 return isTypeAssignableTo(source, target);
             }
             for (const t of source.types) {
@@ -9352,7 +9352,7 @@ namespace ts {
                 const constraint = getConstraintOfTypeParameter(<TypeParameter>type);
                 return getTypeFacts(constraint || emptyObjectType);
             }
-            if (isUnionOrIntersection(type)) {
+            if (isUnionOrIntersectionType(type)) {
                 return getTypeFactsOfTypes(type.types);
             }
             return TypeFacts.All;
@@ -9527,15 +9527,15 @@ namespace ts {
         }
 
         function eachTypeContainedIn(source: Type, types: Type[]) {
-            return isUnion(source) ? !forEach(source.types, t => !contains(types, t)) : contains(types, source);
+            return isUnionType(source) ? !forEach(source.types, t => !contains(types, t)) : contains(types, source);
         }
 
         function isTypeSubsetOf(source: Type, target: Type) {
-            return source === target || isUnion(target) && isTypeSubsetOfUnion(source, target);
+            return source === target || isUnionType(target) && isTypeSubsetOfUnion(source, target);
         }
 
         function isTypeSubsetOfUnion(source: Type, target: UnionType) {
-            if (isUnion(source)) {
+            if (isUnionType(source)) {
                 for (const t of source.types) {
                     if (!containsType(target.types, t)) {
                         return false;
@@ -9550,11 +9550,11 @@ namespace ts {
         }
 
         function forEachType<T>(type: Type, f: (t: Type) => T): T {
-            return isUnion(type) ? forEach(type.types, f) : f(type);
+            return isUnionType(type) ? forEach(type.types, f) : f(type);
         }
 
         function filterType(type: Type, f: (t: Type) => boolean): Type {
-            if (isUnion(type)) {
+            if (isUnionType(type)) {
                 const filtered = filter(type.types, f);
                 return filtered === type.types ? type : getUnionTypeFromSortedList(filtered);
             }
@@ -9562,7 +9562,7 @@ namespace ts {
         }
 
         function mapType(type: Type, f: (t: Type) => Type): Type {
-            return isUnion(type) ? getUnionType(map(type.types, f)) : f(type);
+            return isUnionType(type) ? getUnionType(map(type.types, f)) : f(type);
         }
 
         function extractTypesOfKind(type: Type, kind: TypeFlags) {
@@ -9620,7 +9620,7 @@ namespace ts {
         function createFinalArrayType(elementType: Type) {
             return elementType.flags & TypeFlags.Never ?
                 autoArrayType :
-                createArrayType(isUnion(elementType) ?
+                createArrayType(isUnionType(elementType) ?
                     getUnionType(elementType.types, /*subtypeReduction*/ true) :
                     elementType);
         }
@@ -9804,7 +9804,7 @@ namespace ts {
                         const assignedType = getBaseTypeOfLiteralType(getInitialOrAssignedType(node));
                         return isTypeAssignableTo(assignedType, declaredType) ? assignedType : anyArrayType;
                     }
-                    if (isUnion(declaredType)) {
+                    if (isUnionType(declaredType)) {
                         return getAssignmentReducedType(declaredType, getInitialOrAssignedType(node));
                     }
                     return declaredType;
@@ -9991,7 +9991,7 @@ namespace ts {
 
             function isMatchingReferenceDiscriminant(expr: Expression) {
                 return expr.kind === SyntaxKind.PropertyAccessExpression &&
-                    isUnion(declaredType) &&
+                    isUnionType(declaredType) &&
                     isMatchingReference(reference, (<PropertyAccessExpression>expr).expression) &&
                     isDiscriminantProperty(declaredType, (<PropertyAccessExpression>expr).name.text);
             }
@@ -10105,7 +10105,7 @@ namespace ts {
                 if (operator === SyntaxKind.ExclamationEqualsToken || operator === SyntaxKind.ExclamationEqualsEqualsToken) {
                     assumeTrue = !assumeTrue;
                 }
-                if (assumeTrue && !isUnion(type)) {
+                if (assumeTrue && !isUnionType(type)) {
                     // We narrow a non-union type to an exact primitive type if the non-union type
                     // is a supertype of that primitive type. For example, type 'any' can be narrowed
                     // to one of the primitive types.
@@ -10198,7 +10198,7 @@ namespace ts {
                 }
                 // If the current type is a union type, remove all constituents that couldn't be instances of
                 // the candidate type. If one or more constituents remain, return a union of those.
-                if (isUnion(type)) {
+                if (isUnionType(type)) {
                     const assignableType = filterType(type, t => isRelated(t, candidate));
                     if (!(assignableType.flags & TypeFlags.Never)) {
                         return assignableType;
@@ -11194,7 +11194,7 @@ namespace ts {
         // is a union type, the mapping function is applied to each constituent type and a union of the resulting
         // types is returned.
         function applyToContextualType(type: Type, mapper: (t: Type) => Type): Type {
-            if (!isUnion(type)) {
+            if (!isUnionType(type)) {
                 return mapper(type);
             }
             let mappedType: Type;
@@ -11229,7 +11229,7 @@ namespace ts {
 
         // Return true if the given contextual type is a tuple-like type
         function contextualTypeIsTupleLikeType(type: Type): boolean {
-            return isUnion(type) ? !!forEach((<UnionType>type).types, isTupleLikeType) : isTupleLikeType(type);
+            return isUnionType(type) ? !!forEach((<UnionType>type).types, isTupleLikeType) : isTupleLikeType(type);
         }
 
         // In an object literal contextually typed by a type T, the contextual type of a property assignment is the type of
@@ -11437,7 +11437,7 @@ namespace ts {
             if (!type) {
                 return undefined;
             }
-            if (!isUnion(type)) {
+            if (!isUnionType(type)) {
                 return getNonGenericSignature(type, node);
             }
             let signatureList: Signature[];
@@ -11813,7 +11813,7 @@ namespace ts {
         function isValidSpreadType(type: Type): boolean {
             return !!(type.flags & (TypeFlags.Any | TypeFlags.Null | TypeFlags.Undefined | TypeFlags.NonPrimitive) ||
                 isObjectType(type) && !isGenericMappedType(type) ||
-                isUnionOrIntersection(type) && !forEach(type.types, t => !isValidSpreadType(t)));
+                isUnionOrIntersectionType(type) && !forEach(type.types, t => !isValidSpreadType(t)));
         }
 
         function checkJsxSelfClosingElement(node: JsxSelfClosingElement) {
@@ -11991,7 +11991,7 @@ namespace ts {
          * For example, in the element <MyClass>, the element instance type is `MyClass` (not `typeof MyClass`).
          */
         function getJsxElementInstanceType(node: JsxOpeningLikeElement, valueType: Type) {
-            Debug.assert(!isUnion(valueType));
+            Debug.assert(!isUnionType(valueType));
             if (isTypeAny(valueType)) {
                 // Short-circuit if the class tag is using an element type 'any'
                 return anyType;
@@ -12057,7 +12057,7 @@ namespace ts {
             if (!elemType) {
                 elemType = checkExpression(node.tagName);
             }
-            if (isUnion(elemType)) {
+            if (isUnionType(elemType)) {
                 return getUnionType(map(elemType.types, type => {
                     return getResolvedJsxType(node, type, elemClassType);
                 }), /*subtypeReduction*/ true);
@@ -12137,7 +12137,7 @@ namespace ts {
                     // Props is of type 'any' or unknown
                     return attributesType;
                 }
-                else if (isUnion(attributesType)) {
+                else if (isUnionType(attributesType)) {
                     // Props cannot be a union type
                     error(node.tagName, Diagnostics.JSX_element_attributes_type_0_may_not_be_a_union_type, typeToString(attributesType));
                     return anyType;
@@ -12431,7 +12431,7 @@ namespace ts {
 
         function reportNonexistentProperty(propNode: Identifier, containingType: Type) {
             let errorInfo: DiagnosticMessageChain;
-            if (isUnion(containingType) && !(containingType.flags & TypeFlags.Primitive)) {
+            if (isUnionType(containingType) && !(containingType.flags & TypeFlags.Primitive)) {
                 for (const subtype of containingType.types) {
                     if (!getPropertyOfType(subtype, propNode.text)) {
                         errorInfo = chainDiagnosticMessages(errorInfo, Diagnostics.Property_0_does_not_exist_on_type_1, declarationNameToString(propNode), typeToString(subtype));
@@ -12504,7 +12504,7 @@ namespace ts {
             // accessor, or optional method.
             if (node.kind !== SyntaxKind.PropertyAccessExpression || assignmentKind === AssignmentKind.Definite ||
                 !(prop.flags & (SymbolFlags.Variable | SymbolFlags.Property | SymbolFlags.Accessor)) &&
-                !(prop.flags & SymbolFlags.Method && isUnion(propType))) {
+                !(prop.flags & SymbolFlags.Method && isUnionType(propType))) {
                 return propType;
             }
             const flowType = getFlowTypeOfReference(node, propType, /*assumeInitialized*/ true, /*flowContainer*/ undefined);
@@ -13614,7 +13614,7 @@ namespace ts {
             if (!numCallSignatures && !numConstructSignatures) {
                 // We exclude union types because we may have a union of function types that happen to have
                 // no common signatures.
-                if (isUnion(funcType)) {
+                if (isUnionType(funcType)) {
                     return false;
                 }
                 return isTypeAssignableTo(funcType, globalFunctionType);
@@ -14603,7 +14603,7 @@ namespace ts {
             if (type.flags & kind) {
                 return true;
             }
-            if (isUnionOrIntersection(type)) {
+            if (isUnionOrIntersectionType(type)) {
                 for (const t of type.types) {
                     if (maybeTypeOfKind(t, kind)) {
                         return true;
@@ -14620,7 +14620,7 @@ namespace ts {
             if (type.flags & kind) {
                 return true;
             }
-            if (isUnion(type)) {
+            if (isUnionType(type)) {
                 for (const t of type.types) {
                     if (!isTypeOfKind(t, kind)) {
                         return false;
@@ -16563,7 +16563,7 @@ namespace ts {
             return checkAwaitedTypeWorker(type);
 
             function checkAwaitedTypeWorker(type: Type): Type {
-                if (isUnion(type)) {
+                if (isUnionType(type)) {
                     const types: Type[] = [];
                     for (const constituentType of type.types) {
                         types.push(checkAwaitedTypeWorker(constituentType));
@@ -17921,7 +17921,7 @@ namespace ts {
             Debug.assert(languageVersion < ScriptTarget.ES2015);
 
             let arrayType = arrayOrStringType;
-            if (isUnion(arrayOrStringType)) {
+            if (isUnionType(arrayOrStringType)) {
                 // After we remove all types that are StringLike, we will know if there was a string constituent
                 // based on whether the result of filter is a new array.
                 const arrayTypes = arrayOrStringType.types;
@@ -22157,25 +22157,5 @@ namespace ts {
             });
             return result;
         }
-    }
-
-    //move
-    function isUnionOrIntersection(type: Type): type is UnionOrIntersectionType {
-        return !!(type.flags & TypeFlags.UnionOrIntersection);
-    }
-    function isUnion(type: Type): type is UnionType {
-        return !!(type.flags & TypeFlags.Union);
-    }
-    function isIntersection(type: Type): type is IntersectionType {
-        return !!(type.flags & TypeFlags.Intersection);
-    }
-    function isIndexType(type: Type): type is IndexType {
-        return !!(type.flags & TypeFlags.Index);
-    }
-    function isIndexedAccessType(type: Type): type is IndexedAccessType {
-        return !!(type.flags & TypeFlags.IndexedAccess);
-    }
-    function isObjectType(type: Type): type is ObjectType {
-        return !!(type.flags & TypeFlags.Object);
     }
 }
